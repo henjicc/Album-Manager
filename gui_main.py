@@ -1,8 +1,8 @@
 import sys
-from PyQt6.QtWidgets import QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QLineEdit, QPushButton, QLabel, QFileDialog, QProgressBar, QMessageBox, QTabWidget
+from PyQt6.QtWidgets import QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QLineEdit, QPushButton, QLabel, QFileDialog, QProgressBar, QMessageBox, QTabWidget, QGridLayout
 from PyQt6.QtGui import QIcon, QDragEnterEvent, QDropEvent
-from PyQt6.QtCore import Qt
-from gui_widgets import CustomListWidget, CustomLineEdit, CustomButton, CustomProgressBar, SmallButton, CustomNumberInput
+from PyQt6.QtCore import Qt, QThread, pyqtSignal
+from gui_widgets import CustomListWidget, CustomLineEdit, CustomButton, CustomProgressBar, SmallButton, CustomNumberInput, CustomCheckBox, CustomSlider, AdvancedSettingsGroup, CustomComboBox
 from gui_dialogs import InfoDialog
 from gui_worker import WorkerThread
 from main import check_existing_files
@@ -119,6 +119,55 @@ class MainWindow(QMainWindow):
         
         layout.addLayout(output_settings_layout)
 
+        # 创建高级设置组
+        self.advanced_group = AdvancedSettingsGroup()
+        advanced_layout = QGridLayout()
+        self.advanced_group.setLayout(advanced_layout)
+
+        # 编码速度设置
+        preset_label = QLabel("编码速度：")
+        self.preset_combo = CustomComboBox()
+        self.preset_combo.addItems(["ultrafast", "superfast", "veryfast", "faster", 
+                                   "fast", "medium", "slow", "slower", "veryslow"])
+        self.preset_combo.setCurrentText("veryslow")
+        advanced_layout.addWidget(preset_label, 0, 0)
+        advanced_layout.addWidget(self.preset_combo, 0, 1)
+
+        # 视频质量设置
+        crf_label = QLabel("视频质量(CRF)：")
+        self.crf_slider = CustomSlider(Qt.Orientation.Horizontal)
+        self.crf_slider.setRange(0, 51)
+        self.crf_slider.setValue(21)
+        self.crf_value_label = QLabel("21")
+        self.crf_slider.valueChanged.connect(lambda v: self.crf_value_label.setText(str(v)))
+        advanced_layout.addWidget(crf_label, 1, 0)
+        advanced_layout.addWidget(self.crf_slider, 1, 1)
+        advanced_layout.addWidget(self.crf_value_label, 1, 2)
+
+        # GOP设置
+        gop_label = QLabel("关键帧间隔：")
+        self.gop_input = CustomNumberInput()
+        self.gop_input.setText("120")
+        advanced_layout.addWidget(gop_label, 2, 0)
+        advanced_layout.addWidget(self.gop_input, 2, 1)
+
+        # 场景切换阈值设置
+        sc_label = QLabel("场景切换阈值：")
+        self.sc_input = CustomNumberInput()
+        self.sc_input.setText("60")
+        advanced_layout.addWidget(sc_label, 3, 0)
+        advanced_layout.addWidget(self.sc_input, 3, 1)
+
+        # 音频码率设置
+        audio_label = QLabel("音频码率：")
+        self.audio_combo = CustomComboBox()
+        self.audio_combo.addItems(["128k", "192k", "256k", "320k"])
+        self.audio_combo.setCurrentText("256k")
+        advanced_layout.addWidget(audio_label, 4, 0)
+        advanced_layout.addWidget(self.audio_combo, 4, 1)
+
+        layout.addWidget(self.advanced_group)
+
         # 开始和终止按钮
         button_layout = QHBoxLayout()
         self.start_button = CustomButton("开始", is_primary=True)
@@ -219,6 +268,21 @@ class MainWindow(QMainWindow):
         self.worker.finished.connect(self.processing_finished)
         self.worker.error_paths.connect(self.update_error_paths)
         self.worker.success_paths.connect(self.update_success_paths)
+
+        # 获取编码参数
+        preset = self.preset_combo.currentText()
+        crf = str(self.crf_slider.value())
+        gop = self.gop_input.text()
+        sc_threshold = self.sc_input.text()
+        audio_bitrate = self.audio_combo.currentText()
+
+        # 添加编码参数
+        self.worker.preset = preset
+        self.worker.crf = crf
+        self.worker.gop = gop
+        self.worker.sc_threshold = sc_threshold
+        self.worker.audio_bitrate = audio_bitrate
+
         self.worker.start()
 
         self.processing_terminated = False  # 重置终止标志
@@ -278,8 +342,6 @@ class MainWindow(QMainWindow):
             path = self.path_list.item(i).text()
             if path in self.success_paths:
                 self.path_list.takeItem(i)
-
-    # 在 MainWindow 类中添加以下方法
 
     def clear_focus_on_tab_change(self, index):
         # 获取当前选中的选项卡

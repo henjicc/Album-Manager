@@ -1,6 +1,6 @@
-from PyQt6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QProgressBar, QFileDialog, QMessageBox, QComboBox
-from PyQt6.QtCore import QThread, pyqtSignal
-from gui_widgets import CustomListWidget, CustomLineEdit, CustomButton, CustomProgressBar, SmallButton, CustomComboBox, CustomNumberInput
+from PyQt6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QProgressBar, QFileDialog, QMessageBox, QComboBox, QGridLayout
+from PyQt6.QtCore import QThread, pyqtSignal, Qt
+from gui_widgets import CustomListWidget, CustomLineEdit, CustomButton, CustomProgressBar, SmallButton, CustomComboBox, CustomNumberInput, CustomCheckBox, CustomSlider, AdvancedSettingsGroup
 from video_processing import process_video
 from file_utils import is_video
 from main import get_executable_path
@@ -13,12 +13,18 @@ class TranscodeWorker(QThread):
     finished = pyqtSignal()
     error = pyqtSignal(str)
 
-    def __init__(self, paths, output_folder, rotation, min_size_mb):
+    def __init__(self, paths, output_folder, rotation, min_size_mb,
+                 preset, crf, gop, sc_threshold, audio_bitrate):
         super().__init__()
         self.paths = paths
         self.output_folder = output_folder
         self.rotation = rotation
         self.min_size_mb = min_size_mb
+        self.preset = preset
+        self.crf = crf
+        self.gop = gop
+        self.sc_threshold = sc_threshold
+        self.audio_bitrate = audio_bitrate
         self.is_running = True
         self.ffmpeg_path = get_executable_path('ffmpeg.exe')
         self.total_files = self.count_files()
@@ -92,7 +98,11 @@ class TranscodeWorker(QThread):
         os.makedirs(output_dir, exist_ok=True)
         output_path = os.path.join(output_dir, os.path.basename(file_path))
         self.current_output_path = output_path
-        success = process_video(file_path, output_path, self.update_progress, lambda: self.is_running, self.ffmpeg_path, self.rotation, self.min_size_mb)
+        success = process_video(file_path, output_path, self.update_progress, 
+                              lambda: self.is_running, self.ffmpeg_path, 
+                              self.rotation, self.min_size_mb,
+                              self.preset, self.crf, self.gop, 
+                              self.sc_threshold, self.audio_bitrate)
         if success is False:  # 处理失败
             self.error.emit(f"处理文件失败: {file_path}")
             self.move_to_error_folder(file_path)
@@ -194,6 +204,55 @@ class TranscodeTab(QWidget):
         
         layout.addLayout(settings_layout)
 
+        # 创建高级设置组
+        self.advanced_group = AdvancedSettingsGroup()
+        advanced_layout = QGridLayout()
+        self.advanced_group.setLayout(advanced_layout)
+
+        # 编码速度设置
+        preset_label = QLabel("编码速度：")
+        self.preset_combo = CustomComboBox()
+        self.preset_combo.addItems(["ultrafast", "superfast", "veryfast", "faster", 
+                                   "fast", "medium", "slow", "slower", "veryslow"])
+        self.preset_combo.setCurrentText("veryslow")
+        advanced_layout.addWidget(preset_label, 0, 0)
+        advanced_layout.addWidget(self.preset_combo, 0, 1)
+
+        # 视频质量设置
+        crf_label = QLabel("视频质量(CRF)：")
+        self.crf_slider = CustomSlider(Qt.Orientation.Horizontal)
+        self.crf_slider.setRange(0, 51)
+        self.crf_slider.setValue(21)
+        self.crf_value_label = QLabel("21")
+        self.crf_slider.valueChanged.connect(lambda v: self.crf_value_label.setText(str(v)))
+        advanced_layout.addWidget(crf_label, 1, 0)
+        advanced_layout.addWidget(self.crf_slider, 1, 1)
+        advanced_layout.addWidget(self.crf_value_label, 1, 2)
+
+        # GOP设置
+        gop_label = QLabel("关键帧间隔：")
+        self.gop_input = CustomNumberInput()
+        self.gop_input.setText("120")
+        advanced_layout.addWidget(gop_label, 2, 0)
+        advanced_layout.addWidget(self.gop_input, 2, 1)
+
+        # 场景切换阈值设置
+        sc_label = QLabel("场景切换阈值：")
+        self.sc_input = CustomNumberInput()
+        self.sc_input.setText("60")
+        advanced_layout.addWidget(sc_label, 3, 0)
+        advanced_layout.addWidget(self.sc_input, 3, 1)
+
+        # 音频码率设置
+        audio_label = QLabel("音频码率：")
+        self.audio_combo = CustomComboBox()
+        self.audio_combo.addItems(["128k", "192k", "256k", "320k"])
+        self.audio_combo.setCurrentText("256k")
+        advanced_layout.addWidget(audio_label, 4, 0)
+        advanced_layout.addWidget(self.audio_combo, 4, 1)
+
+        layout.addWidget(self.advanced_group)
+
         # 开始和终止按钮
         button_layout = QHBoxLayout()
         self.start_button = CustomButton("开始", is_primary=True)
@@ -260,6 +319,13 @@ class TranscodeTab(QWidget):
         rotation = self.rotation_combo.currentText()
         min_size_mb = float(self.size_filter_input.text())
 
+        # 获取编码参数
+        preset = self.preset_combo.currentText()
+        crf = str(self.crf_slider.value())
+        gop = self.gop_input.text()
+        sc_threshold = self.sc_input.text()
+        audio_bitrate = self.audio_combo.currentText()
+
         self.start_button.setEnabled(False)
         self.stop_button.setEnabled(True)
         self.add_button.setEnabled(False)
@@ -267,11 +333,13 @@ class TranscodeTab(QWidget):
         self.clear_button.setEnabled(False)
         self.path_input.setEnabled(False)
         self.rotation_combo.setEnabled(False)
+        self.advanced_group.setEnabled(False)
 
         self.processing_terminated = False
         self.error_files = []
-        self.processed_paths.clear()  # 清空已处理路径集合
-        self.worker = TranscodeWorker(paths, output_folder, rotation, min_size_mb)
+        self.processed_paths.clear()
+        self.worker = TranscodeWorker(paths, output_folder, rotation, min_size_mb,
+                                     preset, crf, gop, sc_threshold, audio_bitrate)
         self.worker.update_progress.connect(self.update_current_progress)
         self.worker.update_total.connect(self.update_total_progress)
         self.worker.finished.connect(self.processing_finished)

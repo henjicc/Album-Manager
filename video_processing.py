@@ -12,7 +12,8 @@ def should_process_video(file_path, min_size_mb):
         print(f"获取文件大小失败: {e}")
         return True  # 如果无法获取文件大小，默认处理该文件
 
-def process_video(input_path, output_path, update_progress, check_if_running, ffmpeg_path, rotation="0", min_size_mb=10):
+def process_video(input_path, output_path, update_progress, check_if_running, ffmpeg_path, rotation="0", min_size_mb=10, 
+                 preset="veryslow", crf="21", gop="120", sc_threshold="60", audio_bitrate="256k"):
     # 检查文件大小
     if not should_process_video(input_path, min_size_mb):
         print(f"跳过小于 {min_size_mb}MB 的文件: {input_path}")
@@ -22,13 +23,13 @@ def process_video(input_path, output_path, update_progress, check_if_running, ff
         ffmpeg_path,
         '-i', input_path,
         '-c:v', 'libx264',
-        '-preset', 'veryslow',
-        '-crf', '21',
-        '-g', '120',
-        '-sc_threshold', '60',
+        '-preset', preset,
+        '-crf', crf,
+        '-g', gop,
+        '-sc_threshold', sc_threshold,
         '-x264-params', 'ref=1:qcomp=0.5:psy-rd=0.3,0:aq-mode=2:aq-strength=0.8',
         '-c:a', 'aac',
-        '-b:a', '256k'
+        '-b:a', audio_bitrate
     ]
 
     # 添加旋转参数

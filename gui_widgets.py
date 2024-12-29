@@ -1,4 +1,4 @@
-from PyQt6.QtWidgets import QListWidget, QLineEdit, QPushButton, QProgressBar, QAbstractItemView, QComboBox, QStyledItemDelegate
+from PyQt6.QtWidgets import QListWidget, QLineEdit, QPushButton, QProgressBar, QAbstractItemView, QComboBox, QStyledItemDelegate, QCheckBox, QSlider, QGroupBox
 from PyQt6.QtGui import QPalette, QColor, QIcon, QPainter, QPixmap
 from PyQt6.QtCore import Qt, QSize
 from PyQt6.QtSvg import QSvgRenderer
@@ -24,6 +24,8 @@ class StyleParameters:
     INPUT_GROUP = {
         "PADDING": "5px",
         "BUTTON_WIDTH": "30px",  # 确保+、-、清空按钮宽度相同
+        "NUMBER_INPUT_WIDTH": "80px",
+        "NUMBER_INPUT_HEIGHT": "30px",
     }
 
     # 路径列表样式
@@ -48,8 +50,15 @@ class StyleParameters:
     }
 
     # 新增颜色定义
-    INPUT_BORDER_COLOR = "#d0d0d0"  # 浅灰色，��于未选中状态
+    INPUT_BORDER_COLOR = "#d0d0d0"  # 浅灰色，用于未选中状态
     INPUT_FOCUS_COLOR = "#4CAF50"  # 绿色，用于选中状态
+
+    # 添加新的样式参数
+    ADVANCED_GROUP = {
+        "MARGIN_TOP": "10px",
+        "PADDING": "15px",
+        "TITLE_MARGIN": "5px",
+    }
 
 # 自定义列表控件
 class CustomListWidget(QListWidget):
@@ -107,10 +116,12 @@ class CustomNumberInput(QLineEdit):
         QLineEdit {{
             border: {StyleParameters.BORDER_WIDTH} solid {StyleParameters.INPUT_BORDER_COLOR};
             border-radius: {StyleParameters.BORDER_RADIUS};
-            padding: {StyleParameters.INPUT_GROUP['PADDING']};
+            padding: 2px 5px;
             background-color: {StyleParameters.BACKGROUND_COLOR};
             selection-background-color: {StyleParameters.PRIMARY_COLOR};
             selection-color: {StyleParameters.TEXT_COLOR};
+            font-size: {StyleParameters.FONT_SIZE};
+            height: 24px;
         }}
         QLineEdit:focus {{
             border: {StyleParameters.BORDER_WIDTH} solid {StyleParameters.INPUT_FOCUS_COLOR};
@@ -118,9 +129,9 @@ class CustomNumberInput(QLineEdit):
         """)
         self.setValidator(QIntValidator(1, 999999))  # 限制只能输入数字
         self.setText("10")  # 默认值为10
-        self.setAlignment(Qt.AlignmentFlag.AlignRight)
-        self.setFixedWidth(60)  # 设置固定宽度
-        self.setFixedHeight(30)  # 设置固定高度，与其他输入框一致
+        self.setAlignment(Qt.AlignmentFlag.AlignLeft)
+        self.setFixedWidth(80)
+        self.setFixedHeight(28)  # 稍微降低高度
 
 # 自定义按钮控件（开始和终止按钮）
 class CustomButton(QPushButton):
@@ -256,3 +267,78 @@ class CustomComboBox(QComboBox):
     def wheelEvent(self, event):
         # 禁用鼠标滚轮事件
         event.ignore()
+
+class CustomCheckBox(QCheckBox):
+    def __init__(self, text="", parent=None):
+        super().__init__(text, parent)
+        self.setStyleSheet(f"""
+        QCheckBox {{
+            spacing: 5px;
+            font-size: {StyleParameters.FONT_SIZE};
+            padding-left: 5px;
+        }}
+        QCheckBox::indicator {{
+            width: 18px;
+            height: 18px;
+            border: {StyleParameters.BORDER_WIDTH} solid {StyleParameters.BORDER_COLOR};
+            border-radius: 3px;
+        }}
+        QCheckBox::indicator:checked {{
+            background-color: {StyleParameters.PRIMARY_COLOR};
+            border: {StyleParameters.BORDER_WIDTH} solid {StyleParameters.PRIMARY_COLOR};
+            image: url(checkmark.png);
+        }}
+        QCheckBox::indicator:unchecked {{
+            background-color: white;
+        }}
+        """)
+
+class CustomSlider(QSlider):
+    def __init__(self, orientation=Qt.Orientation.Horizontal, parent=None):
+        super().__init__(orientation, parent)
+        self.setStyleSheet(f"""
+        QSlider::groove:horizontal {{
+            border: 1px solid #999999;
+            height: 4px;
+            background: {StyleParameters.BACKGROUND_COLOR};
+            margin: 2px 0;
+            border-radius: 2px;
+        }}
+        QSlider::handle:horizontal {{
+            background: {StyleParameters.PRIMARY_COLOR};
+            border: none;
+            width: 14px;
+            height: 14px;
+            margin: -5px 0;
+            border-radius: 7px;
+        }}
+        QSlider::sub-page:horizontal {{
+            background: {StyleParameters.PRIMARY_COLOR};
+            border-radius: 2px;
+        }}
+        QSlider {{
+            margin-top: 5px;
+            margin-bottom: 5px;
+        }}
+        """)
+
+class AdvancedSettingsGroup(QGroupBox):
+    def __init__(self, title="高级设置", parent=None):
+        super().__init__(title, parent)
+        self.setStyleSheet(f"""
+        QGroupBox {{
+            border: {StyleParameters.BORDER_WIDTH} solid {StyleParameters.BORDER_COLOR};
+            border-radius: {StyleParameters.BORDER_RADIUS};
+            margin-top: 10px;
+            padding: 15px;
+        }}
+        QGroupBox::title {{
+            subcontrol-origin: margin;
+            left: 10px;
+            padding: 0 3px;
+            margin-bottom: 5px;
+        }}
+        QLabel {{
+            margin-right: 10px;
+        }}
+        """)
