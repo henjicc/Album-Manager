@@ -12,6 +12,7 @@ class TranscodeWorker(QThread):
     update_total = pyqtSignal(int, int)
     finished = pyqtSignal()
     error = pyqtSignal(str)
+    file_processed = pyqtSignal(str)
 
     def __init__(self, paths, output_folder, rotation, min_size_mb,
                  preset, crf, gop, sc_threshold, audio_bitrate):
@@ -103,12 +104,14 @@ class TranscodeWorker(QThread):
                               self.rotation, self.min_size_mb,
                               self.preset, self.crf, self.gop, 
                               self.sc_threshold, self.audio_bitrate)
-        if success is False:  # 处理失败
+        if success is True:  # 处理成功
+            self.file_processed.emit(file_path)
+            return True
+        elif success is False:  # 处理失败
             self.error.emit(f"处理文件失败: {file_path}")
             self.move_to_error_folder(file_path)
-        elif success is None:  # 处理被跳过或终止
-            if os.path.exists(output_path):
-                self.cleanup_incomplete_file(output_path)
+            return False
+        return None  # 处理被跳过或终止
 
     def cleanup_incomplete_file(self, output_path):
         if os.path.exists(output_path):
@@ -137,7 +140,7 @@ class TranscodeTab(QWidget):
         self.worker = None
         self.error_files = []
         self.processing_terminated = False
-        self.processed_paths = set()  # 添加这行来跟踪已处理的路径
+        self.processed_paths = set()
 
     def initUI(self):
         layout = QVBoxLayout(self)
@@ -222,8 +225,8 @@ class TranscodeTab(QWidget):
         crf_label = QLabel("视频质量(CRF)：")
         self.crf_slider = CustomSlider(Qt.Orientation.Horizontal)
         self.crf_slider.setRange(0, 51)
-        self.crf_slider.setValue(21)
-        self.crf_value_label = QLabel("21")
+        self.crf_slider.setValue(19)
+        self.crf_value_label = QLabel("19")
         self.crf_slider.valueChanged.connect(lambda v: self.crf_value_label.setText(str(v)))
         advanced_layout.addWidget(crf_label, 1, 0)
         advanced_layout.addWidget(self.crf_slider, 1, 1)
@@ -298,7 +301,7 @@ class TranscodeTab(QWidget):
 
     def clear_paths(self):
         self.path_list.clear()
-        self.reset_progress()  # 添加这行
+        self.reset_progress()
 
     def reset_progress(self):
         self.current_file_label.setText("当前文件：")
@@ -344,6 +347,7 @@ class TranscodeTab(QWidget):
         self.worker.update_total.connect(self.update_total_progress)
         self.worker.finished.connect(self.processing_finished)
         self.worker.error.connect(self.add_error_file)
+        self.worker.file_processed.connect(self.add_processed_file)
         self.worker.start()
 
     def add_error_file(self, error_message):
@@ -364,6 +368,7 @@ class TranscodeTab(QWidget):
         self.clear_button.setEnabled(True)
         self.path_input.setEnabled(True)
         self.rotation_combo.setEnabled(True)
+        self.advanced_group.setEnabled(True)
 
         if not self.processing_terminated:
             if self.error_files:
@@ -372,7 +377,7 @@ class TranscodeTab(QWidget):
             else:
                 QMessageBox.information(self, "处理完成", "所有视频转码成功！", QMessageBox.StandardButton.Ok)
             
-            self.remove_processed_paths()  # 只在正常完成时移除已处理的路径
+            self.remove_processed_paths()
         else:
             QMessageBox.information(self, "已终止", "处理已被终止")
 
@@ -385,9 +390,6 @@ class TranscodeTab(QWidget):
     def update_current_progress(self, file_name, progress):
         self.current_file_label.setText(f"当前文件：{file_name}")
         self.current_progress.setValue(progress)
-        if progress == 100:
-            # 当文件处理完成时，将其添加到已处理路径集合中
-            self.processed_paths.add(os.path.dirname(file_name))
 
     def update_total_progress(self, processed, total):
         self.total_progress_label.setText(f"总进度：{processed}/{total}")
@@ -398,3 +400,6 @@ class TranscodeTab(QWidget):
 
     def show_error(self, message):
         QMessageBox.warning(self, "错误", message)
+
+    def add_processed_file(self, file_path):
+        self.processed_paths.add(file_path)
