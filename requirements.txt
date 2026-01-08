@@ -1,2 +1,2 @@
-PyQt6==6.4.0
-tqdm==4.64.1
+PyQt6
+tqdm

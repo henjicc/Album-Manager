@@ -250,7 +250,7 @@ class TranscodeTab(QWidget):
         audio_label = QLabel("音频码率：")
         self.audio_combo = CustomComboBox()
         self.audio_combo.addItems(["128k", "192k", "256k", "320k"])
-        self.audio_combo.setCurrentText("256k")
+        self.audio_combo.setCurrentText("320k")
         advanced_layout.addWidget(audio_label, 4, 0)
         advanced_layout.addWidget(self.audio_combo, 4, 1)
 

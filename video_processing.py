@@ -13,7 +13,7 @@ def should_process_video(file_path, min_size_mb):
         return True  # 如果无法获取文件大小，默认处理该文件
 
 def process_video(input_path, output_path, update_progress, check_if_running, ffmpeg_path, rotation="0", min_size_mb=10, 
-                 preset="veryslow", crf="21", gop="120", sc_threshold="60", audio_bitrate="256k"):
+                 preset="veryslow", crf="19", gop="120", sc_threshold="60", audio_bitrate="320k"):
     # 检查文件大小
     if not should_process_video(input_path, min_size_mb):
         print(f"跳过小于 {min_size_mb}MB 的文件: {input_path}")
